@@ -19,6 +19,7 @@ from app.tools.suggestion_candidates import get_candidate_foods
 from app.tools.suggestion_filter import filter_by_budget
 from app.tools.suggestion_ranker import rank_candidates
 from app.llm.suggestion_explainer import explain_suggestions
+from app.llm.daily_summary_explainer import explain_daily_summary
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -172,4 +173,26 @@ def suggest_next_meal(db: Session = Depends(get_db)):
         },
         "suggestions": ranked[:5],
         "explanation": explanation
+    }
+
+@app.get("/summary/daily")
+def daily_summary(db: Session = Depends(get_db)):
+    today_utc = datetime.now(timezone.utc).date()
+
+    logs = crud.get_food_logs_for_day(db, today_utc)
+    intake = aggregate_daily_intake(logs)
+
+    profile = crud.get_or_create_user_profile(db)
+    evaluation = evaluate_goals(intake, profile)
+
+    summary = {
+        "date": str(today_utc),
+        "intake": intake,
+        "goals": evaluation,
+        "meal_count": len(logs)
+    }
+
+    return {
+        **summary,
+        "explanation": explain_daily_summary(summary)
     }
