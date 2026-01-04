@@ -15,6 +15,10 @@ from app.llm.validators import validate_parsed_output
 from app.rag.vector_store import VectorStore
 from app.tools.aggregation import aggregate_daily_intake
 from app.tools.goal_evaluator import evaluate_goals
+from app.tools.suggestion_candidates import get_candidate_foods
+from app.tools.suggestion_filter import filter_by_budget
+from app.tools.suggestion_ranker import rank_candidates
+from app.llm.suggestion_explainer import explain_suggestions
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -129,4 +133,43 @@ def today_summary(db: Session = Depends(get_db)):
     return {
         "intake": intake,
         "goals": evaluation
+    }
+
+@app.get("/suggest/next")
+def suggest_next_meal(db: Session = Depends(get_db)):
+    today_utc = datetime.now(timezone.utc).date()
+
+    logs = crud.get_food_logs_for_day(db, today_utc)
+    intake = aggregate_daily_intake(logs)
+
+    profile = crud.get_or_create_user_profile(db)
+    evaluation = evaluate_goals(intake, profile)
+
+    remaining_cal = evaluation["calories"]["remaining"]
+    remaining_protein = evaluation["protein"]["remaining"]
+
+    candidates = get_candidate_foods()
+    filtered = filter_by_budget(
+        candidates,
+        remaining_cal,
+        remaining_protein
+    )
+
+    ranked = rank_candidates(filtered)
+
+    explanation = explain_suggestions(
+        remaining={
+            "calories": remaining_cal,
+            "protein": remaining_protein
+        },
+        suggestions=ranked[:5]
+    )
+
+    return {
+        "remaining": {
+            "calories": remaining_cal,
+            "protein": remaining_protein
+        },
+        "suggestions": ranked[:5],
+        "explanation": explanation
     }
