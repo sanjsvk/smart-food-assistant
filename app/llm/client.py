@@ -9,7 +9,7 @@ class LLMParseError(Exception):
     pass
 
 
-def parse_food_input(user_input: str) -> dict:
+def parse_food_input(user_input: str, context: list | None = None) -> dict:
     if MOCK_LLM:
         # Deterministic mock output for development
         text = user_input.lower()

@@ -12,6 +12,7 @@ from app.tools.schemas import FoodItem
 from app.tools.nutrition_calculator import calculate_nutrition
 from app.llm.client import parse_food_input
 from app.llm.validators import validate_parsed_output
+from app.rag.vector_store import VectorStore
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,6 +25,7 @@ app = FastAPI(
     title="Smart Food Assistant",
     lifespan=lifespan
 )
+vector_store = VectorStore()
 
 @app.get("/health")
 def health():
@@ -34,6 +36,10 @@ async def workflow_test(request: Request):
     payload = await request.json()
     return {"received": payload}
 
+# --------------------------------------------------
+# Debug / Development Endpoints
+# Not intended for production UI
+# --------------------------------------------------
 @app.get("/debug/today", tags=["debug"])
 def debug_today(db: Session = Depends(get_db)):
     today_utc = datetime.now(timezone.utc).date()
@@ -50,6 +56,10 @@ def debug_today(db: Session = Depends(get_db)):
         ],
     }
 
+# --------------------------------------------------
+# Debug / Development Endpoints
+# Not intended for production UI
+# --------------------------------------------------
 @app.post("/debug/calculate", tags=["debug"])
 def debug_calculate(items: list[FoodItem]):
     return calculate_nutrition(items)
@@ -63,12 +73,16 @@ def log_food(
     db: Session = Depends(get_db)
 ):
     raw_text = payload.raw_text
-    parsed_raw = parse_food_input(raw_text)
+    retrieved_context = vector_store.query(raw_text)
+    parsed_raw = parse_food_input(
+        user_input=raw_text,
+        context=retrieved_context
+    )
     parsed = validate_parsed_output(parsed_raw)
 
     nutrition = calculate_nutrition(parsed.items)
 
-    crud.create_food_log(
+    log = crud.create_food_log(
         db=db,
         raw_text=raw_text,
         parsed_items=parsed_raw,
@@ -76,7 +90,20 @@ def log_food(
         protein=nutrition["total_protein"],
     )
 
+    vector_store.add_document(
+        doc_id=str(log.id),
+        text=raw_text,
+        metadata={
+            "calories": nutrition["total_calories"],
+            "protein": nutrition["total_protein"]
+        }
+    )
+
     return {
         "parsed": parsed_raw,
         "nutrition": nutrition
     }
+
+@app.get("/debug/retrieve", tags=["debug"])
+def debug_retrieve(query: str):
+    return vector_store.query(query)

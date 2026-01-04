@@ -9,4 +9,4 @@ if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY is not set")
 
 # Development flags
-MOCK_LLM = True
+MOCK_LLM = False

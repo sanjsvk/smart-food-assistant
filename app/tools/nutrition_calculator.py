@@ -1,6 +1,7 @@
 from typing import List
 from .schemas import FoodItem
 from .nutrition_data import NUTRITION_TABLE
+from app.tools.normalization import normalize_food_name
 
 
 class UnknownFoodError(Exception):
@@ -14,7 +15,7 @@ def calculate_nutrition(items: List[FoodItem]) -> dict:
     breakdown = []
 
     for item in items:
-        food_key = item.name.lower()
+        food_key = normalize_food_name(item.name)
 
         if food_key not in NUTRITION_TABLE:
             raise UnknownFoodError(f"Unknown food: {item.name}")
