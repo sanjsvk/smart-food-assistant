@@ -13,6 +13,8 @@ from app.tools.nutrition_calculator import calculate_nutrition
 from app.llm.client import parse_food_input
 from app.llm.validators import validate_parsed_output
 from app.rag.vector_store import VectorStore
+from app.tools.aggregation import aggregate_daily_intake
+from app.tools.goal_evaluator import evaluate_goals
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -107,3 +109,24 @@ def log_food(
 @app.get("/debug/retrieve", tags=["debug"])
 def debug_retrieve(query: str):
     return vector_store.query(query)
+
+@app.get("/summary/today")
+def today_summary(db: Session = Depends(get_db)):
+    today_utc = datetime.now(timezone.utc).date()
+
+    # Fetch today's food logs
+    logs = crud.get_food_logs_for_day(db, today_utc)
+
+    # Aggregate calories & protein
+    intake = aggregate_daily_intake(logs)
+
+    # Load user goals
+    profile = crud.get_or_create_user_profile(db)
+
+    # Compare intake vs goals
+    evaluation = evaluate_goals(intake, profile)
+
+    return {
+        "intake": intake,
+        "goals": evaluation
+    }
