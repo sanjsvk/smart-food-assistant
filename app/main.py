@@ -7,6 +7,8 @@ from app.db.database import engine
 from app.db.models import Base
 from app.db.session import get_db
 from app.db import crud
+from app.tools.schemas import FoodItem
+from app.tools.nutrition_calculator import calculate_nutrition
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,3 +45,7 @@ def debug_today(db: Session = Depends(get_db)):
             for l in logs
         ],
     }
+
+@app.post("/debug/calculate")
+def debug_calculate(items: list[FoodItem]):
+    return calculate_nutrition(items)

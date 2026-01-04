@@ -1,0 +1,27 @@
+{
+    "egg": {
+      "unit": "item",
+      "calories": 78,
+      "protein": 6
+    },
+    "chicken_breast": {
+      "unit": "100g",
+      "calories": 165,
+      "protein": 31
+    },
+    "rice_cooked": {
+      "unit": "100g",
+      "calories": 130,
+      "protein": 2.7
+    },
+    "milk": {
+      "unit": "100ml",
+      "calories": 42,
+      "protein": 3.4
+    },
+    "apple": {
+      "unit": "item",
+      "calories": 95,
+      "protein": 0.5
+    }
+  }
